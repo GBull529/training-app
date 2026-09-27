@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hybrid Tracker">
+<link rel="manifest" href="manifest.json">
+<title>Hybrid Training Tracker</title>
+<style>
+:root{--bg:#0b1020;--card:#121a2b;--card2:#182238;--text:#f5f7fb;--muted:#9fb0c8;--accent:#63e6be;--accent2:#74c0fc;--line:#26334d;--shadow:0 10px 30px rgba(0,0,0,.25)}
+*{box-sizing:border-box}
+html,body{margin:0;background:linear-gradient(180deg,#09101d,#0d1424);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;min-height:100%}
+body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+.wrap{max-width:920px;margin:auto;padding:14px 14px 100px}
+header{position:sticky;top:0;z-index:10;background:rgba(11,16,32,.94);backdrop-filter:blur(12px);padding:12px 0}
+h1{font-size:1.4rem;margin:0 0 3px}.sub,.small{color:var(--muted);font-size:.86rem}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px}
+.tab{border:1px solid var(--line);background:var(--card);color:var(--text);padding:10px 5px;border-radius:12px;font-weight:700;font-size:.82rem}
+.tab.active{background:var(--accent);color:#06251c;border-color:transparent}
+section{display:none}.active-section{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:17px;padding:14px;margin:12px 0;box-shadow:var(--shadow)}
+.day-title{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.badge{padding:5px 8px;border-radius:999px;background:var(--card2);color:var(--accent2);font-size:.76rem;font-weight:700}
+.exercise{padding:12px 0;border-top:1px solid var(--line)} .exercise:first-of-type{border-top:none}
+.exercise h3{margin:0 0 7px;font-size:1rem}.hint{color:var(--muted);font-size:.82rem;margin-bottom:7px}
+.setrow{display:grid;grid-template-columns:34px 1fr 1fr;gap:7px;align-items:center;margin:7px 0}
+input,select,textarea{width:100%;background:#0e1627;border:1px solid #31415f;color:var(--text);padding:11px;border-radius:10px;font-size:16px}
+button{cursor:pointer}.btn{background:var(--accent);color:#06251c;border:0;padding:11px 13px;border-radius:11px;font-weight:800}
+.btn.secondary{background:var(--card2);color:var(--text);border:1px solid var(--line)}
+.btn.danger{background:#3a1920;color:#ffd7dc;border:1px solid #6a2b37}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.list-item{padding:10px 0;border-top:1px solid var(--line)}.list-item:first-child{border-top:none}.today{outline:2px solid var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>Hybrid Training Tracker</h1>
+<div class="sub">Muskelaufbau · Arme · VO₂max · aerobe Basis · Mobility</div>
+<div class="tabs">
+<button class="tab active" data-tab="plan">Plan</button>
+<button class="tab" data-tab="cardio">Ausdauer</button>
+<button class="tab" data-tab="history">Verlauf</button>
+<button class="tab" data-tab="settings">Daten</button>
+</div>
+</header>
+
+<section id="plan" class="active-section"></section>
+
+<section id="cardio">
+<div class="card">
+<h2>Ausdauer eintragen</h2>
+<div class="metric-grid">
+<label>Art<select id="cType"><option>Zone 2 Lauf</option><option>VO₂max Intervalle</option><option>Radfahren</option><option>Spaziergang</option><option>Sonstiges</option></select></label>
+<label>Dauer (min)<input id="cDuration" type="number" inputmode="numeric" placeholder="60"></label>
+<label>Distanz (km)<input id="cDistance" type="number" inputmode="decimal" step="0.01" placeholder="8.0"></label>
+<label>Ø Puls<input id="cHr" type="number" inputmode="numeric" placeholder="140"></label>
+</div>
+<label style="display:block;margin-top:10px">Notiz<textarea id="cNote" rows="3" placeholder="Wie hat es sich angefühlt?"></textarea></label>
+<div class="actions"><button class="btn" onclick="saveCardio()">Speichern</button></div>
+</div>
+</section>
+
+<section id="history">
+<div class="card"><div class="day-title"><h2>Verlauf</h2><span class="badge" id="countBadge">0 Einträge</span></div><div id="historyList"></div></div>
+</section>
+
+<section id="settings">
+<div class="card">
+<h2>Daten</h2>
+<p class="small">Alle Trainingsdaten werden lokal auf deinem Gerät gespeichert.</p>
+<div class="actions">
+<button class="btn secondary" onclick="exportJSON()">Backup exportieren</button>
+<label class="btn secondary">Backup importieren<input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)"></label>
+<button class="btn danger" onclick="clearData()">Alles löschen</button>
+</div>
+</div>
+</section>
+</div>
+
+<script>
+const plan=[
+{day:"Montag",type:"Kraft A · Trizeps",exercises:[
+["Kniebeuge / Beinpresse","3 × 5–8",3],["Bankdrücken","3 × 5–8",3],["Klimmzüge","3 × 5–8",3],
+["Romanian Deadlift","3 × 6–10",3],["Overhead Triceps Extension","3 × 8–12",3],["Bizeps Curl","3 × 8–12",3]]},
+{day:"Dienstag",type:"Aerobe Basis",cardio:"60–75 min sehr locker laufen. Ganze Sätze sprechen können."},
+{day:"Mittwoch",type:"Kraft B · Bizeps",exercises:[
+["Hip Thrust / Deadlift","3 × 5–8",3],["Schulterdrücken","3 × 6–10",3],["Rudern","3 × 6–10",3],
+["Bulgarian Split Squat","3 × 8–10",3],["Incline Dumbbell Curl","3 × 8–12",3],["Hammer Curl","3 × 8–12",3],["Triceps Pushdown","2 × 10–15",2]]},
+{day:"Donnerstag",type:"VO₂max",cardio:"10–15 min locker → 4 × 4 min hart / 3 min locker → 10 min locker."},
+{day:"Freitag",type:"Kraft C · Arme",exercises:[
+["Hack Squat / Front Squat","3 × 6–10",3],["Schrägbankdrücken","3 × 6–10",3],["Klimmzüge / Latzug","3 × 6–10",3],
+["Rudern","2–3 × 8–12",3],["EZ Curl","3 × 8–12",3],["Cable Curl","2 × 10–15",2],["Overhead Triceps Extension","3 × 8–12",3],["Pushdown","2 × 10–15",2]]},
+{day:"Samstag",type:"Langer lockerer Lauf",cardio:"70–90 min locker; später langsam auf 90–120 min steigern."},
+{day:"Sonntag",type:"Regeneration",cardio:"Frei oder Spaziergang + 10–20 min Mobility."}
+];
+
+const weekdayMap=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
+const loadData=()=>JSON.parse(localStorage.getItem("hybridTrackerData")||'{"strength":[],"cardio":[]}');
+const saveData=d=>localStorage.setItem("hybridTrackerData",JSON.stringify(d));
+
+function renderPlan(){
+ const el=document.getElementById("plan"),today=weekdayMap[new Date().getDay()];
+ el.innerHTML=plan.map((d,di)=>{
+   let body="";
+   if(d.exercises){
+     body=d.exercises.map((e,ei)=>`<div class="exercise"><h3>${e[0]}</h3><div class="hint">Ziel: ${e[1]}</div>${
+       Array.from({length:e[2]},(_,si)=>`<div class="setrow"><span>S${si+1}</span><input type="number" inputmode="decimal" step="0.5" id="w-${di}-${ei}-${si}" placeholder="kg"><input type="number" inputmode="numeric" id="r-${di}-${ei}-${si}" placeholder="Wdh."></div>`).join("")
+     }</div>`).join("")+`<div class="actions"><button class="btn" onclick="saveStrength(${di})">Training speichern</button></div>`;
+   } else {
+     body=`<div class="exercise"><div>${d.cardio}</div><div class="actions"><button class="btn secondary" onclick="openCardio('${d.type}')">Eintragen</button></div></div>`;
+   }
+   return `<div class="card ${d.day===today?'today':''}"><div class="day-title"><h2>${d.day}</h2><span class="badge">${d.type}</span></div>${body}</div>`;
+ }).join("");
+}
+
+function saveStrength(di){
+ const d=plan[di],session={id:Date.now(),date:new Date().toISOString(),kind:"Kraft",day:d.day,type:d.type,exercises:[]};
+ d.exercises.forEach((e,ei)=>{
+   const sets=[];
+   for(let si=0;si<e[2];si++){
+     const w=document.getElementById(`w-${di}-${ei}-${si}`).value;
+     const r=document.getElementById(`r-${di}-${ei}-${si}`).value;
+     if(w!==""||r!=="")sets.push({weight:w===""?null:Number(w),reps:r===""?null:Number(r)});
+   }
+   if(sets.length)session.exercises.push({name:e[0],sets});
+ });
+ if(!session.exercises.length){alert("Bitte zuerst mindestens einen Satz eintragen.");return;}
+ const data=loadData();data.strength.unshift(session);saveData(data);alert("Gespeichert.");renderHistory();
+}
+function openCardio(type){document.querySelector('[data-tab="cardio"]').click();document.getElementById("cType").value=type.includes("VO₂")?"VO₂max Intervalle":"Zone 2 Lauf";}
+function saveCardio(){
+ const duration=Number(document.getElementById("cDuration").value);if(!duration){alert("Bitte Dauer eintragen.");return;}
+ const s={id:Date.now(),date:new Date().toISOString(),kind:"Ausdauer",type:document.getElementById("cType").value,duration,
+ distance:Number(document.getElementById("cDistance").value)||null,hr:Number(document.getElementById("cHr").value)||null,note:document.getElementById("cNote").value.trim()};
+ const data=loadData();data.cardio.unshift(s);saveData(data);["cDuration","cDistance","cHr","cNote"].forEach(id=>document.getElementById(id).value="");alert("Gespeichert.");renderHistory();
+}
+function renderHistory(){
+ const data=loadData(),all=[...data.strength,...data.cardio].sort((a,b)=>new Date(b.date)-new Date(a.date));
+ document.getElementById("countBadge").textContent=`${all.length} Einträge`;
+ document.getElementById("historyList").innerHTML=all.length?all.map(s=>{
+   const date=new Date(s.date).toLocaleString("de-DE",{dateStyle:"medium",timeStyle:"short"});
+   if(s.kind==="Kraft"){
+     const ex=s.exercises.map(e=>`<div class="small"><b>${e.name}:</b> ${e.sets.map(x=>`${x.weight??"–"} kg × ${x.reps??"–"}`).join(" · ")}</div>`).join("");
+     return `<div class="list-item"><b>${date} · ${s.type}</b>${ex}<div class="actions"><button class="btn danger" onclick="del(${s.id},'strength')">Löschen</button></div></div>`;
+   }
+   let details=`${s.duration} min${s.distance?` · ${s.distance} km`:""}${s.hr?` · Ø ${s.hr} bpm`:""}`;
+   return `<div class="list-item"><b>${date} · ${s.type}</b><div class="small">${details}</div>${s.note?`<div class="small">${escapeHtml(s.note)}</div>`:""}<div class="actions"><button class="btn danger" onclick="del(${s.id},'cardio')">Löschen</button></div></div>`;
+ }).join(""):'<p class="small">Noch keine Trainings gespeichert.</p>';
+}
+function del(id,k){const d=loadData();d[k]=d[k].filter(x=>x.id!==id);saveData(d);renderHistory();}
+function clearData(){if(confirm("Wirklich alle Trainingsdaten löschen?")){localStorage.removeItem("hybridTrackerData");renderHistory();}}
+function exportJSON(){const blob=new Blob([JSON.stringify(loadData(),null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="hybrid-training-backup.json";a.click();}
+function importJSON(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.strength||!d.cardio)throw 0;saveData(d);renderHistory();alert("Backup importiert.");}catch{alert("Ungültige Datei.");}};r.readAsText(f);}
+function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));document.querySelectorAll("section").forEach(x=>x.classList.remove("active-section"));b.classList.add("active");document.getElementById(b.dataset.tab).classList.add("active-section");});
+if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}
+renderPlan();renderHistory();
+</script>
+</body>
+</html>
